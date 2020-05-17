@@ -108,7 +108,7 @@ $cat_cmd $fastq_in \
     | sed 's/ .*$//' \
     | paste - - - - \
     | awk 'length($2) >= '$min_length' && length($2) <= '$max_length' { print $1; print $2; print $3; print $4 }'  \
-    | sed 's/^>/>'$name_prefix'./' \
+    | awk '(NR-1) % 4 == 0 { gsub(/^@/, "@'$name_prefix'.", $0); } { print; }' \
     | pigz >$long_reads
 
 corrected_reads=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.corrected.fa
