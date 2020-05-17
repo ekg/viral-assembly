@@ -21,7 +21,7 @@ fi
 # extract options and their arguments into variables.
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
-        -f|--fastq-in) fastq=$2 ; shift ;;
+        -f|--fastq-in) fastq_in=$2 ; shift ;;
         -o|--output-dir) output_dir=$2 ; shift ;;
         -G|--min-length) min_length=$2 ; shift ;;
         -L|--max-length) max_length=$2 ; shift ;;
