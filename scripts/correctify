@@ -67,7 +67,7 @@ then
     echo "    -p, --name-prefix      prefix the corrected reads' names with this word"
     echo "    -t, --threads          number of threads to use in parallel steps"
     echo "    -h, --help             this usage summary"
-    echo "    add --debug for debugging output"
+#    echo "    add --debug for debugging output"
     echo
     echo "This tool first builds an assembly with minia. The contig graph produced by this tool"
     echo "is used as a reference system for GraphAligner alignment and correction of reads in a given"
@@ -79,6 +79,7 @@ fi
 echo "Assembling $fastq_in with k=$kmer_size and abundance minimum of $abundance_min."
 echo "Writing output to $output_dir/, correcting reads between $min_length and $max_length bp."
 
+mkdir -p $output_dir
 output_assembly=$output_dir/minia.k$k.a$a
 
 minia -kmer-size $kmer_size \
