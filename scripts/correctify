@@ -82,6 +82,8 @@ echo "Writing output to $output_dir/, correcting reads between $min_length and $
 mkdir -p $output_dir
 output_assembly=$output_dir/minia.k$kmer_size.a$abundance_min
 
+# make our minia assembly model
+
 minia -kmer-size $kmer_size \
       -abundance-min $abundance_min \
       -in $fastq_in \
@@ -106,14 +108,17 @@ fi
 long_reads=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.fq.gz
 long_reads_gaf=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.gaf
 
+# select long reads
+
 $cat_cmd $fastq_in \
     | sed 's/ .*$//' \
     | paste - - - - \
     | awk 'length($2) >= '$min_length' && length($2) <= '$max_length' { print $1; print $2; print $3; print $4 }'  \
-    | awk '(NR-1) % 4 == 0 { gsub(/^@/, "@'$name_prefix'.", $0); } { print; }' \
     | pigz >$long_reads
 
 corrected_reads=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.corrected.fa
+
+# align and correct with graphaligner
 
 GraphAligner -x dbg \
              --seeds-minimizer-length 15 \
@@ -121,6 +126,10 @@ GraphAligner -x dbg \
              -g $output_assembly.contigs.gfa \
              -f $long_reads \
              -a $long_reads_gaf \
-             --corrected-out $corrected_reads \
+             --corrected-out $corrected_reads.1 \
              --threads $threads
 
+# prefix and uppercase the corrected reads
+
+fastix -p $name_prefix. $corrected_reads.1 >$corrected_reads
+rm -f $corrected_reads.1
