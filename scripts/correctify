@@ -1,0 +1,123 @@
+#!/bin/bash
+
+show_help=false
+debug=false
+fastq_in=false
+min_length=false
+max_length=false
+kmer_size=false
+abundance_min=false
+output_dir=false
+name_prefix=false
+threads=false
+
+#debug=false
+
+if [ $# -eq 0 ];
+then
+    show_help=true
+fi
+
+# extract options and their arguments into variables.
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        -f|--fastq-in) fastq=$2 ; shift ;;
+        -o|--output-dir) output_dir=$2 ; shift ;;
+        -G|--min-length) min_length=$2 ; shift ;;
+        -L|--max-length) max_length=$2 ; shift ;;
+        -k|--kmer-size) kmer_size=$2 ; shift ;;
+        -a|--abundance-min) abundance_min=$2 ; shift ;;
+        -p|--name-prefix) name_prefix=$2 ; shift ;;
+        -t|--threads) threads=$2 ; shift ;;
+        -h|--help) show_help=true ;;
+        -d|--debug) debug=true ;;
+        *) echo "Unknown parameter passed $1" ; exit 1 ;;
+    esac
+    shift
+done
+
+if [[    $fastq_in == false
+      || $min_length == false
+      || $max_length == false
+      || $kmer_size == false
+      || $abundance_min == false
+      || $output_dir == false
+      || $name_prefix == false
+      || $threads == false
+    ]];
+then
+    show_help=true
+fi
+
+if [ $show_help == true ];
+then
+    echo "usage: $0 [options]"
+    echo
+    echo "Correct nanopore/pacbio reads in a given size range against an assembly graph"
+    echo "made from high-abundance kmers in the read set. Designed for inference of"
+    echo "viral genomes in high-coverage noisy sequencing data."
+    echo 
+    echo "options:"
+    echo "    -f, --fastq-in         input fastq files"
+    echo "    -o, --output-dir       output directory"
+    echo "    -k, --kmer-size        kmer size for de Bruijn graph"
+    echo "    -a, --abundance-min    minimum count of kmer for inclusion in de Bruijn graph"
+    echo "    -G, --min-length       correct reads greater than this length against contig graph"
+    echo "    -L, --max-length       correct reads less than this length against contig graph"
+    echo "    -p, --name-prefix      prefix the corrected reads' names with this word"
+    echo "    -t, --threads          number of threads to use in parallel steps"
+    echo "    -h, --help             this usage summary"
+    echo "    add --debug for debugging output"
+    echo
+    echo "This tool first builds an assembly with minia. The contig graph produced by this tool"
+    echo "is used as a reference system for GraphAligner alignment and correction of reads in a given"
+    echo "size range. These reads are taken to be potential long (or even full-length) observations of"
+    echo "a viral genome."
+    exit
+fi
+
+echo "Assembling $fastq_in with k=$kmer_size and abundance minimum of $abundance_min."
+echo "Writing output to $output_dir/, correcting reads between $min_length and $max_length bp."
+
+output_assembly=$output_dir/minia.k$k.a$a
+
+minia -kmer-size $kmer_size \
+      -abundance-min $abundance_min \
+      -in $fastq_in \
+      -out $output_assembly \
+      -nb-cores $threads
+
+convertToGFA.py $output_assembly.contigs.fa $output_assembly.contigs.gfa $kmer_size
+#convertToGFA.py $output_assembly.unitigs.fa $output_assembly.unitigs.gfa $kmer_size
+
+# get reads in the given length range
+
+is_gzipped=false
+cat_cmd=cat
+if [ $(file $fastq_in | grep gzip | wc -l) -eq 1 ]
+then
+    is_gzipped=true
+    cat_cmd=zcat
+fi
+
+long_reads=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.fq.gz
+long_reads_gaf=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.gaf
+
+$cat_cmd $fastq_in \
+    | sed 's/ .*$//' \
+    | paste - - - - \
+    | awk 'length($2) >= '$min_length' && length($2) <= '$max_length' { print $1; print $2; print $3; print $4 }'  \
+    | sed 's/^>/>'$name_prefix'./' \
+    | pigz >$long_reads
+
+corrected_reads=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.corrected.fa
+
+GraphAligner -x dbg \
+             --seeds-minimizer-length 15 \
+             --seeds-minimizer-windowsize 15 \
+             -g $output_assembly.contigs.gfa \
+             -f $long_reads \
+             -a $long_reads_gaf \
+             --corrected-out $corrected_reads \
+             --threads $threads
+
