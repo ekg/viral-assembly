@@ -133,4 +133,4 @@ GraphAligner -x dbg \
 # prefix and uppercase the corrected reads
 
 fastix -p $name_prefix. $corrected_reads_raw | pigz >$corrected_reads
-rm -f $corrected_reads_raw
+#rm -f $corrected_reads_raw
