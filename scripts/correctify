@@ -114,10 +114,11 @@ $cat_cmd $fastq_in \
     | sed 's/ .*$//' \
     | paste - - - - \
     | awk 'length($2) >= '$min_length' && length($2) <= '$max_length' { print $1; print $2; print $3; print $4 }'  \
+    | awk '(NR-1) % 4 == 0 { gsub(/^@/, "@'$name_prefix'.", $0); } { print; }' \
     | pigz >$long_reads
 
 corrected_reads=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.corrected.fa.gz
-corrected_reads_raw=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.corrected.raw.fa
+corrected_reads_raw=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.corrected.raw.fa.gz
 
 # align and correct with graphaligner
 
@@ -130,7 +131,8 @@ GraphAligner -x dbg \
              --corrected-out $corrected_reads_raw \
              --threads $threads
 
-# prefix and uppercase the corrected reads
+# uppercase the corrected reads
+zcat $corrected_reads_raw \
+    | awk 'NR % 2 == 0 { $0=toupper($0); } { print; }' \
+    | pigz >$corrected_reads
 
-fastix -p $name_prefix. $corrected_reads_raw | pigz >$corrected_reads
-#rm -f $corrected_reads_raw
