@@ -84,7 +84,7 @@ fi
 if [[ $sample_n != false ]]
 then
     fasta_sample=$output_dir/$name.sample.$sample_n.fa.gz
-    zcat $fasta_todo | paste - - | shuf | head -$sample_n | pigz >$fasta_sample
+    zcat $fasta_todo | paste - - | shuf | head -$sample_n | awk '{ print $1; print $2; }' | pigz >$fasta_sample
     fasta_todo=$fasta_sample
 fi
 
