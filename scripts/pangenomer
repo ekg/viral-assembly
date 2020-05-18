@@ -6,6 +6,7 @@ fasta_in=false
 min_alignment_length=false
 min_match_length=0
 min_repeat_length=0
+keep_n_longest=false
 output_dir=false
 name="pan"
 threads=false
@@ -21,6 +22,7 @@ while [[ "$#" -gt 0 ]]; do
         -f|--fasta-in) fasta_in=$2 ; shift ;;
         -o|--output-dir) output_dir=$2 ; shift ;;
         -n|--name) name=$2 ; shift ;;
+        -K|--keep-n-longest) keep_n_longest=$2 ; shift ;;
         -a|--min-alignment-length) min_alignment_length=$2 ; shift ;;
         -k|--min-match-length) min_match_length=$2 ; shift ;;
         -l|--min-repeat-length) min_repeat_length=$2 ; shift ;;
@@ -52,6 +54,7 @@ then
     echo "    -f, --fasta-in              input fastq files"
     echo "    -o, --output-dir            output directory"
     echo "    -n, --name                  name prefix for output files (default: pan)"
+    echo "    -K, --keep-n-longest        keep the longest N reads (default: all)"
     echo "    -a, --min-alignment-length  filter alignments shorter than this length from pangenome construction"
     echo "    -k, --min-match-length      minimum match length for union-find in seqwish"
     echo "    -l, --min-repeat-length     minimum allowed self-repeat length for union-find in seqwish"
@@ -67,10 +70,18 @@ fi
 mkdir -p $output_dir
 alignments=$output_dir/$name.paf
 
-minimap2 -t $threads -c -x asm20 -X $fasta_in $fasta_in | fpa drop -l $min_alignment_length >$alignments
+fasta_todo=$fasta_in
+
+if [[ $keep_n_longest != false ]]
+then
+    fasta_todo=$output_dir/$name.longest.$keep_n_longest.fa.gz
+    zcat $fasta_in | paste - - | awk '{ print length($2), $0 }' | sort -n | tail -$keep_n_longest | awk '{ print $2; print $3 }' | pigz >$fasta_todo
+fi
+
+minimap2 -t $threads -c -x asm20 -X $fasta_todo $fasta_todo | fpa drop -l $min_alignment_length >$alignments
 
 seqwish_graph=$output_dir/$name.seqwish.gfa
-seqwish -g $seqwish_graph -s $fasta_in -p $alignments -k $min_match_length -l $min_repeat_length -t $threads
+seqwish -g $seqwish_graph -s $fasta_todo -p $alignments -k $min_match_length -l $min_repeat_length -t $threads
 
 odgi_graph=$output_dir/$name.odgi
 odgi build -g $seqwish_graph -o - | odgi sort -i - -p bSs -O 100000 -Q 10000 -t $threads -o $odgi_graph
