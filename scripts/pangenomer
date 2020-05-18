@@ -7,6 +7,7 @@ min_alignment_length=false
 min_match_length=0
 min_repeat_length=0
 keep_n_longest=false
+sample_n=false
 output_dir=false
 name="pan"
 threads=false
@@ -23,6 +24,7 @@ while [[ "$#" -gt 0 ]]; do
         -o|--output-dir) output_dir=$2 ; shift ;;
         -n|--name) name=$2 ; shift ;;
         -K|--keep-n-longest) keep_n_longest=$2 ; shift ;;
+        -S|--sample-n) sample_n=$2 ; shift ;;
         -a|--min-alignment-length) min_alignment_length=$2 ; shift ;;
         -k|--min-match-length) min_match_length=$2 ; shift ;;
         -l|--min-repeat-length) min_repeat_length=$2 ; shift ;;
@@ -55,6 +57,7 @@ then
     echo "    -o, --output-dir            output directory"
     echo "    -n, --name                  name prefix for output files (default: pan)"
     echo "    -K, --keep-n-longest        keep the longest N reads (default: all)"
+    echo "    -S, --sample-n              randomly select this many reads after size selection (default: all)"
     echo "    -a, --min-alignment-length  filter alignments shorter than this length from pangenome construction"
     echo "    -k, --min-match-length      minimum match length for union-find in seqwish"
     echo "    -l, --min-repeat-length     minimum allowed self-repeat length for union-find in seqwish"
@@ -76,6 +79,13 @@ if [[ $keep_n_longest != false ]]
 then
     fasta_todo=$output_dir/$name.longest.$keep_n_longest.fa.gz
     zcat $fasta_in | paste - - | awk '{ print length($2), $0 }' | sort -n | tail -$keep_n_longest | awk '{ print $2; print $3 }' | pigz >$fasta_todo
+fi
+
+if [[ $sample_n != false ]]
+then
+    fasta_sample=$output_dir/$name.sample.$sample_n.fa.gz
+    zcat $fasta_todo | past - - | shuf | head -$sample_n | pigz >$fasta_sample
+    fasta_todo=$fasta_sample
 fi
 
 minimap2 -t $threads -c -x asm20 -X $fasta_todo $fasta_todo | fpa drop -l $min_alignment_length >$alignments
