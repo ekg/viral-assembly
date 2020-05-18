@@ -1,0 +1,77 @@
+#!/bin/bash
+
+show_help=false
+debug=false
+fasta_in=false
+min_alignment_length=false
+min_match_length=0
+min_repeat_length=0
+output_dir=false
+name="pan"
+threads=false
+
+if [ $# -eq 0 ];
+then
+    show_help=true
+fi
+
+# extract options and their arguments into variables.
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        -f|--fasta-in) fasta_in=$2 ; shift ;;
+        -o|--output-dir) output_dir=$2 ; shift ;;
+        -n|--name) name=$2 ; shift ;;
+        -a|--min-alignment-length) min_alignment_length=$2 ; shift ;;
+        -k|--min-match-length) min_match_length=$2 ; shift ;;
+        -l|--min-repeat-length) min_repeat_length=$2 ; shift ;;
+        -t|--threads) threads=$2 ; shift ;;
+        -h|--help) show_help=true ;;
+        -d|--debug) debug=true ;;
+        *) echo "Unknown parameter passed $1" ; exit 1 ;;
+    esac
+    shift
+done
+
+if [[    $fasta_in == false
+      || $output_dir == false
+      || $min_alignment_length == false
+      || $threads == false
+    ]];
+then
+    show_help=true
+fi
+
+if [ $show_help == true ];
+then
+    echo "usage: $0 [options]"
+    echo
+    echo "Assemble a pangenome from a given FASTA input using seqwish."
+    echo "Order and produce visualizations of the pangenome graph."
+    echo 
+    echo "options:"
+    echo "    -f, --fasta-in              input fastq files"
+    echo "    -o, --output-dir            output directory"
+    echo "    -n, --name                  name prefix for output files (default: pan)"
+    echo "    -a, --min-alignment-length  filter alignments shorter than this length from pangenome construction"
+    echo "    -k, --min-match-length      minimum match length for union-find in seqwish"
+    echo "    -l, --min-repeat-length     minimum allowed self-repeat length for union-find in seqwish"
+    echo "    -t, --threads               number of threads to use in parallel steps"
+    echo "    -h, --help                  this usage summary"
+    echo
+    exit
+fi
+
+#echo "Making a pangenome from $fasta_in with k=$kmer_size and abundance minimum of $abundance_min."
+#echo "Writing output to $output_dir/, correcting reads between $min_length and $max_length bp."
+
+mkdir -p $output_dir
+alignments=$output_dir/$name.paf
+
+minimap2 -t $threads -c -x asm20 -X $fasta_in $fasta_in | fpa drop -l $min_alignment_length >$alignments
+
+seqwish_graph=$output_dir/$name.seqwish.gfa
+seqwish -g $seqwish_graph -s $fasta_in -p $alignments -k $min_match_length -l $min_repeat_length -t $threads
+
+odgi_graph=$output_dir/$name.odgi
+odgi build -g $seqwish_graph -o - | odgi sort -i - -p bSs -O 100000 -Q 10000 -t $threads -o $odgi_graph
+odgi viz -i $odgi_graph -o $odgi_graph.png -x 4000 -y 400 -P 1 -R
