@@ -116,7 +116,8 @@ $cat_cmd $fastq_in \
     | awk 'length($2) >= '$min_length' && length($2) <= '$max_length' { print $1; print $2; print $3; print $4 }'  \
     | pigz >$long_reads
 
-corrected_reads=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.corrected.fa
+corrected_reads=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.corrected.fa.gz
+corrected_reads_raw=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.corrected.raw.fa.gz
 
 # align and correct with graphaligner
 
@@ -126,10 +127,10 @@ GraphAligner -x dbg \
              -g $output_assembly.contigs.gfa \
              -f $long_reads \
              -a $long_reads_gaf \
-             --corrected-out $corrected_reads.1 \
+             --corrected-out $corrected_reads_raw \
              --threads $threads
 
 # prefix and uppercase the corrected reads
 
-fastix -p $name_prefix. $corrected_reads.1 >$corrected_reads
-rm -f $corrected_reads.1
+fastix -p $name_prefix. $corrected_reads_raw | pigz >$corrected_reads
+rm -f $corrected_reads_raw
