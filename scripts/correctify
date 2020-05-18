@@ -90,7 +90,7 @@ minia -kmer-size $kmer_size \
       -out $output_assembly \
       -nb-cores $threads
 
-rm -f output_assembly.glue.*
+rm -f $output_assembly.glue.*
 
 convertToGFA.py $output_assembly.contigs.fa $output_assembly.contigs.gfa $kmer_size
 #convertToGFA.py $output_assembly.unitigs.fa $output_assembly.unitigs.gfa $kmer_size
