@@ -117,7 +117,7 @@ $cat_cmd $fastq_in \
     | pigz >$long_reads
 
 corrected_reads=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.corrected.fa.gz
-corrected_reads_raw=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.corrected.raw.fa.gz
+corrected_reads_raw=$output_dir/reads.$name_prefix.gt$min_length.lt$max_length.corrected.raw.fa
 
 # align and correct with graphaligner
 
